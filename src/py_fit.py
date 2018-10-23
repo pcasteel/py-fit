@@ -7,6 +7,7 @@ import threading
 import traceback
 import webbrowser
 import pprint
+import argparse
 
 from fitbit.api import Fitbit
 from oauthlib.oauth2.rfc6749.errors import MismatchingStateError, MissingTokenError
@@ -73,12 +74,30 @@ class OAuth2Server:
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("base_date", help="Base date in yyyy-MM-dd format")
+    parser.add_argument("detail_level", help="Detail level with value of 1sec or 1min")
+    parser.add_argument("output_file", help="Path to output JSON file")
+    parser.add_argument("--start_time", help="Start time in format HH:mm")
+    parser.add_argument("--end_time", help="End time in format HH:mm")
+    args = parser.parse_args()
 
     credentials = json.load(open(".fitbit"))
 
     # Authenticate through fitbit
     server = OAuth2Server(credentials["clientID"], credentials["clientSecret"])
     server.browser_authorize()
-
-    result = server.fitbit.intraday_time_series("activities/heart")
-    print result
+    try:
+        print "\nRetrieving heartrate data..."
+        result = server.fitbit.intraday_time_series("activities/heart", 
+                                                    base_date=args.base_date, 
+                                                    detail_level=args.detail_level, 
+                                                    start_time=args.start_time if args.start_time else None,
+                                                    end_time=args.end_time if args.end_time else None)
+        print "Writing data to " + args.output_file + "..."
+        file = open(args.output_file, "w")
+        file.write(json.dumps(result, indent=2))
+        file.close()
+        print "Done."
+    except Exception as e:
+        print "Error retrieving data: "+ str(e)
